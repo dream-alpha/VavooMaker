@@ -1,0 +1,94 @@
+# iptv-org-playlists-plugin-for-enigma2.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-02-11 16:00+0100\n"
+"PO-Revision-Date: 2025-02-11 16:00+0100\n"
+"Last-Translator: Orlandox\n"
+"Language-Team: Orlandox\n"
+"Language: fi_FI\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.5\n"
+"X-Poedit-Basepath: ../../..\n"
+"X-Poedit-SearchPath-0: __init__.py\n"
+"X-Poedit-SearchPath-1: plugin.py\n"
+
+#: plugin.py:37
+msgid "country"
+msgstr "maa"
+
+#: plugin.py:50
+msgid "vavoo"
+msgstr ""
+
+#: plugin.py:152 plugin.py:276
+msgid "vavoo playlists"
+msgstr ""
+
+#: plugin.py:157
+msgid "Remove"
+msgstr ""
+
+#: plugin.py:159
+msgid "Cancel"
+msgstr "Peruuta"
+
+#: plugin.py:160
+msgid "Create bouquets"
+msgstr "Luo suosikkilistat"
+
+#: plugin.py:161
+msgid "Toggle all"
+msgstr "Vaihda kaikki valinnat"
+
+#: plugin.py:178
+msgid "Downloading playlist - Please wait!"
+msgstr "Ladataan soittolistaa - Odota!"
+
+#: plugin.py:211
+msgid "Creating bouquets"
+msgstr "Luodaan suosikkilistoja"
+
+#: plugin.py:212
+msgid "Creating bouquets. This may take some time. Please be patient."
+msgstr "Luodaan suosikkilistoja. Tämä voi kestää jonkin aikaa. Ole kärsivällinen."
+
+#: plugin.py:231
+msgid "Please select the bouquets you wish to create"
+msgstr "Valitse suosikkilistat, jotka haluat luoda"
+
+#: plugin.py:240
+msgid "Really close without saving settings?"
+msgstr "Suljetaanko tallentamatta asetuksia?"
+
+#: plugin.py:258
+msgid "Vavoo Favorite Bouquet removed."
+msgstr ""
+
+#: plugin.py:260
+msgid "Operation cancelled."
+msgstr ""
+
+#: plugin.py:263
+msgid "Remove Vavoo Favorite Bouquet?"
+msgstr ""
+
+#: plugin.py:268
+msgid "Selected Vavoo Favorite Bouquet does not exist."
+msgstr ""
+
+#: plugin.py:270
+msgid "No Vavoo Favorites List selected."
+msgstr ""
+
+#: plugin.py:321
+msgid "Make IPTV bouquets based on m3u playlists from github.com/vavoo"
+msgstr ""

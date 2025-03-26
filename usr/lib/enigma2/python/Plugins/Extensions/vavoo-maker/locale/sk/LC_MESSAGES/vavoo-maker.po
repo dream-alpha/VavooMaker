@@ -1,0 +1,94 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: \n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-02-11 15:59+0100\n"
+"PO-Revision-Date: 2025-02-12 10:18+0100\n"
+"Last-Translator: Warder <ciksa@seznam.cz>\n"
+"Language-Team: \n"
+"Language: sk\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.5\n"
+"X-Poedit-Basepath: ..\n"
+"X-Poedit-SearchPath-0: plugin.py\n"
+"X-Poedit-SearchPath-1: __init__.py\n"
+
+#: plugin.py:37
+msgid "country"
+msgstr "krajina"
+
+#: plugin.py:50
+msgid "vavoo"
+msgstr "vavoo"
+
+#: plugin.py:152 plugin.py:276
+msgid "vavoo playlists"
+msgstr "vavoo zoznamy skladieb"
+
+#: plugin.py:157
+msgid "Remove"
+msgstr "Odstrániť"
+
+#: plugin.py:159
+msgid "Cancel"
+msgstr "Zrušiť"
+
+#: plugin.py:160
+msgid "Create bouquets"
+msgstr "Vytvorte kytice"
+
+#: plugin.py:161
+msgid "Toggle all"
+msgstr "Prepnúť všetko"
+
+#: plugin.py:178
+msgid "Downloading playlist - Please wait!"
+msgstr "Sťahuje sa zoznam skladieb – čakajte prosím!"
+
+#: plugin.py:211
+msgid "Creating bouquets"
+msgstr "Vytváranie kytíc"
+
+#: plugin.py:212
+msgid "Creating bouquets. This may take some time. Please be patient."
+msgstr "Vytváranie kytíc. Môže to chvíľu trvať. Prosím o trpezlivosť."
+
+#: plugin.py:231
+msgid "Please select the bouquets you wish to create"
+msgstr "Vyberte si kytice, ktoré chcete vytvoriť"
+
+#: plugin.py:240
+msgid "Really close without saving settings?"
+msgstr "Naozaj zavrieť bez uloženia nastavení?"
+
+#: plugin.py:258
+msgid "Vavoo Favorite Bouquet removed."
+msgstr "Obľúbená kytica Vavoo bola odstránená."
+
+#: plugin.py:260
+msgid "Operation cancelled."
+msgstr "Operácia zrušená."
+
+#: plugin.py:263
+msgid "Remove Vavoo Favorite Bouquet?"
+msgstr "Odstrániť Vavoo Favorite Bouquet?"
+
+#: plugin.py:268
+msgid "Selected Vavoo Favorite Bouquet does not exist."
+msgstr "Vybraná obľúbená kytica Vavoo neexistuje."
+
+#: plugin.py:270
+msgid "No Vavoo Favorites List selected."
+msgstr "Nie je vybratý žiadny zoznam obľúbených Vavoo."
+
+#: plugin.py:321
+msgid "Make IPTV bouquets based on m3u playlists from github.com/vavoo"
+msgstr "Vytvárajte kytice IPTV na základe zoznamov skladieb m3u z github.com/vavoo"
