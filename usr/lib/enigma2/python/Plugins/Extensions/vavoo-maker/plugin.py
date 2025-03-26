@@ -49,6 +49,7 @@ from os import (
 )
 from requests import get, exceptions
 from shutil import rmtree
+from re import DOTALL, compile
 from time import time
 import json
 import codecs
@@ -171,6 +172,7 @@ class vavooFetcher():
 			return False
 
 		for country in sorted([k for k in current.keys() if k in enabled], key=lambda x: group_titles.get(x, x).lower()):
+			"""
 			bouquet_list = []
 
 			if current[country]:  # if the country is not empty
@@ -182,18 +184,39 @@ class vavooFetcher():
 
 			if bouquet_list:
 				bouquet_filename = sanitizeFilename(country).replace(" ", "_").strip().lower()
-				# bouquet_display_name = "%s - %s" % (self.bouquetName, group_titles.get(country, country))
 				bouquet_path = "/etc/enigma2/userbouquet.vavoo.%s.tv" % bouquet_filename
 
 				with open(bouquet_path, "w") as f:
 					f.write("\n".join(bouquet_list))
+			"""
+			# for epg channels compile service reference in folder list channels
+			bouquet_filename = sanitizeFilename(country).replace(" ", "_").strip().lower()
+			bouquet_path = "/etc/enigma2/userbouquet.vavoo.%s.tv" % bouquet_filename
+			filename = PLUGIN_PATH + '/list/userbouquet.vavoo.%s.tv' % bouquet_filename
+			if os_path.exists(filename):
+				key = None
+				with open(filename, "rt") as fin:
+					data = fin.read()
+					regexcat = '#SERVICE.*?vavoo_auth=(.+?)#User'
+					match = compile(regexcat, flags=DOTALL).findall(data)
+					for key in match:
+						key = str(app)
 
-				bouquets_file = "/etc/enigma2/bouquets.tv"
-				bouquet_entry = '#SERVICE 1:7:1:0:0:0:0:0:0:0:FROM BOUQUET "userbouquet.vavoo.%s.tv" ORDER BY bouquet\n' % bouquet_filename
+				with open(filename, 'r') as f:
+					newlines = []
+					for line in f.readlines():
+						newlines.append(line.replace(key, app))
 
-				if not bouquet_exists(bouquets_file, bouquet_entry):
-					with open(bouquets_file, "a") as f:
-						f.write(bouquet_entry)
+				with open(bouquet_path, 'w') as f:
+					for line in newlines:
+						f.write(line)
+
+			bouquets_file = "/etc/enigma2/bouquets.tv"
+			bouquet_entry = '#SERVICE 1:7:1:0:0:0:0:0:0:0:FROM BOUQUET "userbouquet.vavoo.%s.tv" ORDER BY bouquet\n' % bouquet_filename
+
+			if not bouquet_exists(bouquets_file, bouquet_entry):
+				with open(bouquets_file, "a") as f:
+					f.write(bouquet_entry)
 
 		reload_bouquet()
 
@@ -244,7 +267,7 @@ class vavooFetcher():
 		removed_bouquets = []
 
 		for file in os_listdir(bouquet_dir):
-			if file.startswith("userbouquet.vavoo.") and file.endswith(".tv"):
+			if file.startswith("userbouquet.vavoo") and file.endswith(".tv"):
 				bouquet_path = os_path.join(bouquet_dir, file)
 				removed_bouquets.append(file)
 
