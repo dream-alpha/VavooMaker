@@ -20,16 +20,16 @@ def reload_bouquet():
 	eDVBDB.getInstance().reloadBouquets()
 
 
-# try:
-	# from urllib import unquote
-# except ImportError:
-	# from urllib.parse import unquote
+try:
+	from urllib import unquote
+except ImportError:
+	from urllib.parse import unquote
 
 
-# try:
-	# import pickle
-# except:
-	# from six.moves import cPickle as pickle
+try:
+	import pickle
+except:
+	from six.moves import cPickle as pickle
 
 
 PluginLanguageDomain = 'vavoo-maker'
