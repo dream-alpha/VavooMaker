@@ -1,5 +1,5 @@
 Vavoo Maker Bouquet
-
+[![Python package](https://github.com/Belfagor2005/VavooMaker/actions/workflows/pylint.yml/badge.svg)](https://github.com/Belfagor2005/VavooMaker/actions/workflows/pylint.yml)
 Enigma2 project
 
 <img src="https://raw.githubusercontent.com/Belfagor2005/VavooMaker/main/screen/main.jpg">
