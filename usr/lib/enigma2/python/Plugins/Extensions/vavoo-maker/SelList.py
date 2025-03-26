@@ -2,7 +2,17 @@ from Components.MenuList import MenuList
 from Tools.Directories import resolveFilename, SCOPE_CURRENT_SKIN
 from Tools.LoadPixmap import LoadPixmap
 from enigma import eListboxPythonMultiContent, gFont, RT_HALIGN_LEFT, RT_VALIGN_CENTER
-from skin import applySkinFactor, fonts, parameters
+from skin import getSkinFactor, fonts, parameters
+
+
+def applySkinFactor(*d):
+	"""
+	Multiply the numeric input by the skin factor
+	and return the result as an integer.
+	"""
+	if len(d) == 1:
+		return int(d[0] * getSkinFactor())
+	return tuple([int(value * getSkinFactor()) if isinstance(value, (int, float)) else value for value in d])
 
 
 def SelectionEntryComponent(description, value, index, selected, selectionListDescr=parameters.get("SelectionListDescr", applySkinFactor(25, 0, 650, 30))):
