@@ -1,0 +1,11 @@
+Package: enigma2-plugin-extensions-vavoo-maker
+Version: 1.0
+Section: enigma2
+Priority: optional
+Architecture: all
+Maintainer: Lululla
+Description: vavoo-maker
+Source: enigma2-plugin-extensions-vavoo-maker
+Homepage: *
+OE: enigma2-plugin-extensions-vavoo-maker
+License: Gpl
