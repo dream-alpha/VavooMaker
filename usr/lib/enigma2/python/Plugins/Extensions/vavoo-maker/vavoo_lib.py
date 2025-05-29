@@ -1,146 +1,186 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-from Tools.Directories import SCOPE_PLUGINS, resolveFilename
-from os import path as os_path, popen, remove as os_remove
+import base64
+import json
+import ssl
+import sys
+import types
+from os import listdir, remove, system
+from os.path import exists, getsize, isfile, join, splitext
 from random import choice
-from re import split, sub
-from sys import version_info
+from re import search, sub, compile
 from time import time
 from unicodedata import normalize
 
-import json
 import requests
+import six
+from six import unichr, iteritems
+from six.moves import html_entities
 
-PY3 = False
-PY3 = version_info[0] == 3
-
-PLUGIN_PATH = resolveFilename(SCOPE_PLUGINS, "Extensions/{}".format('vavoo-maker'))
-
-
-def decodeHtml(text):
-	if PY3:
-		import html
-		text = html.unescape(text)
-	else:
-		from six.moves import html_parser
-		h = html_parser.HTMLParser()
-		text = h.unescape(text.decode('utf8')).encode('utf8')
-
-	html_replacements = {
-		'&amp;': '&', '&apos;': "'", '&lt;': '<', '&gt;': '>', '&ndash;': '-',
-		'&quot;': '"', '&ntilde;': '~', '&rsquo;': "'", '&nbsp;': ' ',
-		'&equals;': '=', '&quest;': '?', '&comma;': ',', '&period;': '.',
-		'&colon;': ':', '&lpar;': '(', '&rpar;': ')', '&excl;': '!',
-		'&dollar;': '$', '&num;': '#', '&ast;': '*', '&lowbar;': '_',
-		'&lsqb;': '[', '&rsqb;': ']', '&half;': '1/2', '&DiacriticalTilde;': '~',
-		'&OpenCurlyDoubleQuote;': '"', '&CloseCurlyDoubleQuote;': '"'
-	}
-
-	for key, val in html_replacements.items():
-		text = text.replace(key, val)
-	return text.strip()
+# Project-specific imports
+from Tools.Directories import SCOPE_PLUGINS, resolveFilename
 
 
-def rimuovi_parentesi(testo):
-	return sub(r'\s*\([^)]*\)\s*', ' ', testo).strip()
+try:
+	from Components.AVSwitch import AVSwitch
+except ImportError:
+	from Components.AVSwitch import eAVControl as AVSwitch
 
 
-def sanitizeFilename(filename):
-	"""Return a fairly safe version of the filename.
+PLUGIN_PATH = resolveFilename(SCOPE_PLUGINS, "Extensions/vavoo-maker")
+PYTHON_VER = sys.version_info.major
 
-	We don't limit ourselves to ascii, because we want to keep municipality
-	names, etc, but we do want to get rid of anything potentially harmful,
-	and make sure we do not exceed Windows filename length limits.
-	Hence a less safe blacklist, rather than a whitelist.
-	"""
-	blacklist = ["\\", "/", ":", "*", "?", "\"", "<", ">", "|", "\0", "(", ")", " "]
-	reserved = [
-		"CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5",
-		"COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5",
-		"LPT6", "LPT7", "LPT8", "LPT9",
-	]  # Reserved words on Windows
-	filename = "".join(c for c in filename if c not in blacklist)
-	# Remove all charcters below code point 32
-	filename = "".join(c for c in filename if 31 < ord(c))
-	filename = normalize("NFKD", filename)
-	filename = filename.rstrip(". ")  # Windows does not allow these at end
-	filename = filename.strip()
-	if all([x == "." for x in filename]):
-		filename = "__" + filename
-	if filename in reserved:
-		filename = "__" + filename
-	if len(filename) == 0:
-		filename = "__"
-	if len(filename) > 255:
-		parts = split(r"/|\\", filename)[-1].split(".")
-		if len(parts) > 1:
-			ext = "." + parts.pop()
-			filename = filename[:-len(ext)]
+if PYTHON_VER == 3:
+	from urllib.request import urlopen, Request
+	ssl_context = ssl.create_default_context()
+	# Disabilita SSLv2, SSLv3, TLS1.0 e TLS1.1 esplicitamente
+	ssl_context.options |= ssl.OP_NO_SSLv2
+	ssl_context.options |= ssl.OP_NO_SSLv3
+	ssl_context.options |= ssl.OP_NO_TLSv1
+	ssl_context.options |= ssl.OP_NO_TLSv1_1
+	unichr_func = unichr
+else:
+	from urllib2 import urlopen, Request
+	ssl_context = None
+	unichr_func = chr
+
+
+class AspectManager:
+	"""Manages aspect ratio settings for the plugin"""
+	def __init__(self):
+		self.init_aspect = self.get_current_aspect()
+		print("[INFO] Initial aspect ratio:", self.init_aspect)
+
+	def get_current_aspect(self):
+		"""Get current aspect ratio setting"""
+		try:
+			return int(AVSwitch().getAspectRatioSetting())
+		except Exception as e:
+			print("[ERROR] Failed to get aspect ratio:", str(e))
+			return 0
+
+	def restore_aspect(self):
+		"""Restore original aspect ratio"""
+		try:
+			print("[INFO] Restoring aspect ratio to:", self.init_aspect)
+			AVSwitch().setAspectRatio(self.init_aspect)
+		except Exception as e:
+			print("[ERROR] Failed to restore aspect ratio:", str(e))
+
+
+aspect_manager = AspectManager()
+
+
+class_types = (type,) if six.PY3 else (type, types.ClassType)
+text_type = six.text_type  # unicode in Py2, str in Py3
+binary_type = six.binary_type  # str in Py2, bytes in Py3
+MAXSIZE = sys.maxsize  # Compatibile con entrambe le versioni
+
+_UNICODE_MAP = {k: unichr(v) for k, v in iteritems(html_entities.name2codepoint)}
+_ESCAPE_RE = compile(r"[&<>\"']")
+_UNESCAPE_RE = compile(r"&\s*(#?)(\w+?)\s*;")
+_ESCAPE_DICT = {
+	"&": "&amp;",
+	"<": "&lt;",
+	">": "&gt;",
+	'"': "&quot;",
+	"'": "&apos;",
+}
+
+
+def ensure_str(s, encoding="utf-8", errors="strict"):
+	if isinstance(s, str):
+		return s
+	if isinstance(s, binary_type):
+		return s.decode(encoding, errors)
+	raise TypeError("not expecting type '%s'" % type(s))
+
+
+def html_escape(value):
+	"""Escape HTML special characters"""
+	return _ESCAPE_RE.sub(lambda m: _ESCAPE_DICT[m.group(0)], value.strip())
+
+
+def html_unescape(value):
+	"""Unescape HTML entities"""
+	return _UNESCAPE_RE.sub(_convert_entity, ensure_str(value).strip())
+
+
+def _convert_entity(m):
+	"""Helper for HTML entity conversion, compatible with Python 2 and 3"""
+	if m.group(1) == "#":
+		try:
+			return unichr(int(m.group(2)[1:], 16)) if m.group(2)[:1].lower() == "x" else unichr(int(m.group(2)))
+		except ValueError:
+			return "&#%s;" % m.group(2)
+	return _UNICODE_MAP.get(m.group(2), "&%s;" % m.group(2))
+
+
+def b64decoder(data):
+	"""Robust base64 decoding with padding correction"""
+	data = data.strip()
+	pad = len(data) % 4
+	if pad == 1:  # Invalid base64 length
+		return ""
+	if pad:
+		data += "=" * (4 - pad)
+
+	try:
+		decoded = base64.b64decode(data)
+		return decoded.decode('utf-8') if PYTHON_VER == 3 else decoded
+	except Exception as e:
+		print("Base64 decoding error: %s" % e)
+		return ""
+
+
+def getUrl(url):
+	"""Fetch URL content with fallback SSL handling"""
+	headers = {'User-Agent': RequestAgent()}
+
+	try:
+		if PYTHON_VER == 3:
+			response = urlopen(Request(url, headers=headers), timeout=20, context=ssl_context)
+			return response.read().decode('utf-8', errors='ignore')
 		else:
-			ext = ""
-		if filename == "":
-			filename = "__"
-		if len(ext) > 254:
-			ext = ext[254:]
-		maxl = 255 - len(ext)
-		filename = filename[:maxl]
-		filename = filename + ext
-		filename = filename.rstrip(". ")
-		if len(filename) == 0:
-			filename = "__"
-	return filename
+			response = urlopen(Request(url, headers=headers), timeout=20)
+			return response.read()
+	except Exception as e:
+		print("URL fetch error: %s" % e)
+		return ""
 
 
 def get_external_ip():
-	try:
-		return popen('curl -s ifconfig.me').readline().strip()
-	except:
-		pass
-	try:
-		return requests.get('https://v4.ident.me').text.strip()
-	except:
-		pass
-	try:
-		return requests.get('https://api.ipify.org').text.strip()
-	except:
-		pass
-	try:
-		return requests.get('https://api.myip.com/').json().get("ip", "")
-	except:
-		pass
-	try:
-		return requests.get('https://checkip.amazonaws.com').text.strip()
-	except:
-		pass
+	"""Get external IP using multiple fallback services"""
+	import requests
+	from subprocess import Popen, PIPE
+
+	services = [
+		lambda: Popen(['curl', '-s', 'ifconfig.me'], stdout=PIPE).communicate()[0].decode('utf-8').strip(),
+		lambda: requests.get('https://v4.ident.me', timeout=5).text.strip(),
+		lambda: requests.get('https://api.ipify.org', timeout=5).text.strip(),
+		lambda: requests.get('https://api.myip.com', timeout=5).json().get("ip", "").strip(),
+		lambda: requests.get('https://checkip.amazonaws.com', timeout=5).text.strip(),
+	]
+
+	for service in services:
+		try:
+			ip = service()
+			if ip:
+				return ip
+		except Exception:
+			continue
 	return None
-
-
-def convert_to_unicode(data):
-	"""
-	In Python 3 le stringhe sono già Unicode, quindi:
-	- Se data è bytes, decodificalo.
-	- Se è str, restituiscilo così com'è.
-	"""
-	if isinstance(data, bytes):
-		return data.decode('utf-8')
-	elif isinstance(data, str):
-		return data
-	elif isinstance(data, dict):
-		return {convert_to_unicode(k): convert_to_unicode(v) for k, v in data.items()}
-	elif isinstance(data, list):
-		return [convert_to_unicode(item) for item in data]
-	return data
 
 
 def set_cache(key, data, timeout):
 	"""Salva i dati nella cache."""
-	file_path = os_path.join(PLUGIN_PATH, key + '.json')
+	file_path = join(PLUGIN_PATH, key + '.json')
 	try:
 		if not isinstance(data, dict):
 			data = {"value": data}
 
-		if version_info[0] < 3:
+		if PYTHON_VER < 3:
 			import io
 			with io.open(file_path, 'w', encoding='utf-8') as cache_file:
 				json.dump(convert_to_unicode(data), cache_file, indent=4, ensure_ascii=False)
@@ -152,35 +192,52 @@ def set_cache(key, data, timeout):
 
 
 def get_cache(key):
-	file_path = os_path.join(PLUGIN_PATH, key + '.json')
-	if os_path.exists(file_path) and os_path.getsize(file_path) > 0:
-		try:
-			if version_info[0] < 3:
-				import io
-				with io.open(file_path, 'r', encoding='utf-8') as cache_file:
-					data = json.load(cache_file)
-			else:
-				with open(file_path, 'r', encoding='utf-8') as cache_file:
-					data = json.load(cache_file)
+	file_path = join(PLUGIN_PATH, key + '.json')
+	if not (exists(file_path) and getsize(file_path) > 0):
+		return None
+	try:
+		data = _read_json_file(file_path)
+		if isinstance(data, str):
+			data = {"value": data}
+			_write_json_file(file_path, data)
 
-			if isinstance(data, str):
-				data = {"value": data}
-				with open(file_path, 'w', encoding='utf-8') as cache_file:
-					json.dump(data, cache_file, indent=4, ensure_ascii=False)
+		if not isinstance(data, dict):
+			print("Unexpected data format in {}: Expected a dict, got {}".format(file_path, type(data)))
+			remove(file_path)
+			return None
 
-			if isinstance(data, dict):
-				if data.get('sigValidUntil', 0) > int(time()):
-					if data.get('ip', "") == get_external_ip():
-						return data.get('value')
-			else:
-				print("Unexpected data format in {}: Expected a dict, got {}".format(file_path, type(data)))
-				os_remove(file_path)
-		except ValueError as e:
-			print("Error decoding JSON from", file_path, ":", e)
-		except Exception as e:
-			print("Unexpected error reading cache file {}:".format(file_path), e)
-			os_remove(file_path)
+		if _is_cache_valid(data):
+			return data.get('value')
+
+	except ValueError as e:
+		print("Error decoding JSON from", file_path, ":", e)
+	except Exception as e:
+		print("Unexpected error reading cache file {}:".format(file_path), e)
+		remove(file_path)
+
 	return None
+
+
+def _read_json_file(file_path):
+	if PYTHON_VER < 3:
+		import io
+		with io.open(file_path, 'r', encoding='utf-8') as f:
+			return json.load(f)
+	else:
+		with open(file_path, 'r', encoding='utf-8') as f:
+			return json.load(f)
+
+
+def _write_json_file(file_path, data):
+	with open(file_path, 'w', encoding='utf-8') as f:
+		json.dump(data, f, indent=4, ensure_ascii=False)
+
+
+def _is_cache_valid(data):
+	return (
+		data.get('sigValidUntil', 0) > int(time())
+		and data.get('ip', "") == get_external_ip()
+	)
 
 
 def getAuthSignature():
@@ -190,9 +247,19 @@ def getAuthSignature():
 
 	veclist = get_cache("veclist")
 	if not veclist:
-		veclist = requests.get("https://raw.githubusercontent.com/Belfagor2005/vavoo/refs/heads/main/data.json").json()
-		set_cache("veclist", veclist, timeout=3600)
+		try:
+			if ssl_context:
+				req = Request("https://raw.githubusercontent.com/Belfagor2005/vavoo/refs/heads/main/data.json")
+				with urlopen(req, context=ssl_context) as r:
+					veclist = json.load(r)
+			else:
+				response = requests.get("https://raw.githubusercontent.com/Belfagor2005/vavoo/refs/heads/main/data.json", verify=False)
+				veclist = response.json()
+		except Exception as e:
+			print("[vUtils] Failed to fetch veclist:", e)
+			return None
 
+		set_cache("veclist", veclist, timeout=3600)
 	sig = None
 	i = 0
 	while not sig and i < 50:
@@ -204,3 +271,156 @@ def getAuthSignature():
 	if sig:
 		set_cache('signfile', convert_to_unicode(sig), timeout=3600)
 	return sig
+
+
+def fetch_vec_list():
+	"""Fetch vector list from GitHub"""
+	try:
+		vec_list = requests.get(
+			"https://raw.githubusercontent.com/Belfagor2005/vavoo/main/data.json",
+			timeout=10
+		).json()
+		set_cache("vec_list", vec_list, 3600)
+		return vec_list
+	except Exception as e:
+		print("Vector list fetch error: " + str(e))
+		return None
+
+
+def convert_to_unicode(data):
+	"""
+	In Python 3 le stringhe sono già Unicode, quindi:
+	- Se data è bytes, decodificalo.
+	- Se è str, restituiscilo così com'è.
+	"""
+	if isinstance(data, bytes):
+		return data.decode('utf-8')
+	elif isinstance(data, str):
+		return data  # Già Unicode in Python 3
+	elif isinstance(data, dict):
+		return {convert_to_unicode(k): convert_to_unicode(v) for k, v in data.items()}
+	elif isinstance(data, list):
+		return [convert_to_unicode(item) for item in data]
+	return data
+
+
+def rimuovi_parentesi(text):
+	"""Remove parentheses and their content from text"""
+	return sub(r'\s*\([^()]*\)\s*', ' ', text).strip()
+
+
+def purge(directory, pattern):
+	"""Delete files matching pattern in directory"""
+	for f in listdir(directory):
+		file_path = join(directory, f)
+		if isfile(file_path) and search(pattern, f):
+			remove(file_path)
+
+
+def MemClean():
+	"""Clear system memory cache"""
+	try:
+		system('sync')
+		for i in range(1, 4):
+			system("echo " + str(i) + " > /proc/sys/vm/drop_caches")
+	except Exception:
+		pass
+
+
+def ReloadBouquets():
+	"""Reload Enigma2 bouquets and service lists"""
+	from enigma import eDVBDB
+	db = eDVBDB.getInstance()
+	db.reloadServicelist()
+	db.reloadBouquets()
+
+
+def sanitizeFilename(filename):
+	"""Sanitize filename for safe filesystem use"""
+	# Remove unsafe characters
+	filename = sub(r'[\\/:*?"<>|\0]', '', filename)
+	filename = ''.join(c for c in filename if ord(c) > 31)
+	# Normalize and strip trailing characters
+	filename = normalize('NFKD', filename).encode('ascii', 'ignore').decode()
+	filename = filename.rstrip('. ').strip()
+	# Handle reserved names
+	reserved = ["CON", "PRN", "AUX", "NUL"] + ["COM" + str(i) for i in range(1, 10)] + ["LPT" + str(i) for i in range(1, 10)]
+	if filename.upper() in reserved or not filename:
+		if filename:
+			filename = "__" + filename
+		else:
+			filename = "__"
+	# Truncate if necessary
+	if len(filename) > 255:
+		base, ext = splitext(filename)
+		ext = ext[:254]
+		filename = base[:255 - len(ext)] + ext
+	return filename or "__"
+
+
+def decodeHtml(text):
+	if PYTHON_VER == 3:
+		import html
+		text = html.unescape(text)
+	else:
+		from six.moves import html_parser
+		h = html_parser.HTMLParser()
+		text = h.unescape(text.decode('utf8')).encode('utf8')
+
+	replacements = {
+		'&amp;': '&', '&apos;': "'", '&lt;': '<', '&gt;': '>', '&ndash;': '-',
+		'&quot;': '"', '&ntilde;': '~', '&rsquo;': "'", '&nbsp;': ' ',
+		'&equals;': '=', '&quest;': '?', '&comma;': ',', '&period;': '.',
+		'&colon;': ':', '&lpar;': '(', '&rpar;': ')', '&excl;': '!',
+		'&dollar;': '$', '&num;': '#', '&ast;': '*', '&lowbar;': '_',
+		'&lsqb;': '[', '&rsqb;': ']', '&half;': '1/2', '&DiacriticalTilde;': '~',
+		'&OpenCurlyDoubleQuote;': '"', '&CloseCurlyDoubleQuote;': '"'
+	}
+	for entity, char in replacements.items():
+		text = text.replace(entity, char)
+
+	return text.strip()
+
+
+def remove_line(filename, pattern):
+	"""Remove lines containing pattern from file"""
+	if not isfile(filename):
+		return
+	with open(filename, 'r') as f:
+		lines = [line for line in f if pattern not in line]
+	with open(filename, 'w') as f:
+		f.writelines(lines)
+
+
+# this def returns the current playing service name and stream_url from give sref
+def getserviceinfo(service_ref):
+	"""Get service name and URL from service reference"""
+	try:
+		from ServiceReference import ServiceReference
+		ref = ServiceReference(service_ref)
+		return ref.getServiceName(), ref.getPath()
+	except Exception:
+		return None, None
+
+
+std_headers = {
+	'User-Agent': 'Mozilla/5.0 (X11; U; Linux x86_64; en-US; rv:1.9.2.6) Gecko/20100627 Firefox/3.6.6',
+	'Accept-Charset': 'ISO-8859-1,utf-8;q=0.7,*;q=0.7',
+	'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+	'Accept-Language': 'en-us,en;q=0.5'
+}
+
+USER_AGENTS = [
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
+	"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+	"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.6312.88 Safari/537.36",
+	"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+	"Mozilla/5.0 (iPhone; CPU iPhone OS 17_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+
+]
+
+
+def RequestAgent():
+	"""Get random user agent from list"""
+	return choice(USER_AGENTS)
