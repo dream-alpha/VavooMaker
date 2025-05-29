@@ -4,7 +4,7 @@
 import base64
 import json
 import ssl
-import sys
+from sys import version_info, maxsize
 import types
 from os import listdir, remove, system
 from os.path import exists, getsize, isfile, join, splitext
@@ -16,7 +16,7 @@ from unicodedata import normalize
 import requests
 import six
 from six import unichr, iteritems
-from six.moves import html_entities
+from six.moves import html_entities, html_parser
 
 # Project-specific imports
 from Tools.Directories import SCOPE_PLUGINS, resolveFilename
@@ -29,7 +29,7 @@ except ImportError:
 
 
 PLUGIN_PATH = resolveFilename(SCOPE_PLUGINS, "Extensions/vavoo-maker")
-PYTHON_VER = sys.version_info.major
+PYTHON_VER = version_info.major
 
 if PYTHON_VER == 3:
 	from urllib.request import urlopen, Request
@@ -72,10 +72,10 @@ class AspectManager:
 aspect_manager = AspectManager()
 
 
-class_types = (type,) if six.PY3 else (type, types.ClassType)
+class_types = (type,) if PYTHON_VER == 3 else (type, types.ClassType)
 text_type = six.text_type  # unicode in Py2, str in Py3
 binary_type = six.binary_type  # str in Py2, bytes in Py3
-MAXSIZE = sys.maxsize  # Compatibile con entrambe le versioni
+MAXSIZE = maxsize  # Compatibile con entrambe le versioni
 
 _UNICODE_MAP = {k: unichr(v) for k, v in iteritems(html_entities.name2codepoint)}
 _ESCAPE_RE = compile(r"[&<>\"']")
@@ -174,21 +174,34 @@ def get_external_ip():
 
 
 def set_cache(key, data, timeout):
-	"""Salva i dati nella cache."""
 	file_path = join(PLUGIN_PATH, key + '.json')
 	try:
 		if not isinstance(data, dict):
 			data = {"value": data}
-
 		if PYTHON_VER < 3:
 			import io
+			converted_data = convert_to_unicode(data)
 			with io.open(file_path, 'w', encoding='utf-8') as cache_file:
-				json.dump(convert_to_unicode(data), cache_file, indent=4, ensure_ascii=False)
+				json.dump(converted_data, cache_file, indent=4, ensure_ascii=False)
 		else:
 			with open(file_path, 'w', encoding='utf-8') as cache_file:
-				json.dump(convert_to_unicode(data), cache_file, indent=4, ensure_ascii=False)
+				json.dump(data, cache_file, indent=4, ensure_ascii=False)
 	except Exception as e:
 		print("Error saving cache:", e)
+
+
+def convert_to_unicode(data):
+	if isinstance(data, dict):
+		return {convert_to_unicode(key): convert_to_unicode(value) for key, value in data.items()}
+	elif isinstance(data, list):
+		return [convert_to_unicode(element) for element in data]
+	elif PYTHON_VER < 3 and isinstance(data, str):
+		# Decodifica le stringhe in Unicode per Python 2
+		return data.decode('utf-8')
+	elif PYTHON_VER < 3 and isinstance(data, unicode):
+		return data
+	else:
+		return data
 
 
 def get_cache(key):
@@ -287,23 +300,6 @@ def fetch_vec_list():
 		return None
 
 
-def convert_to_unicode(data):
-	"""
-	In Python 3 le stringhe sono già Unicode, quindi:
-	- Se data è bytes, decodificalo.
-	- Se è str, restituiscilo così com'è.
-	"""
-	if isinstance(data, bytes):
-		return data.decode('utf-8')
-	elif isinstance(data, str):
-		return data  # Già Unicode in Python 3
-	elif isinstance(data, dict):
-		return {convert_to_unicode(k): convert_to_unicode(v) for k, v in data.items()}
-	elif isinstance(data, list):
-		return [convert_to_unicode(item) for item in data]
-	return data
-
-
 def rimuovi_parentesi(text):
 	"""Remove parentheses and their content from text"""
 	return sub(r'\s*\([^()]*\)\s*', ' ', text).strip()
@@ -363,7 +359,6 @@ def decodeHtml(text):
 		import html
 		text = html.unescape(text)
 	else:
-		from six.moves import html_parser
 		h = html_parser.HTMLParser()
 		text = h.unescape(text.decode('utf8')).encode('utf8')
 
