@@ -21,6 +21,10 @@ from six.moves import html_entities, html_parser
 # Project-specific imports
 from Tools.Directories import SCOPE_PLUGINS, resolveFilename
 
+try:
+	unicode
+except NameError:
+	unicode = str
 
 try:
 	from Components.AVSwitch import AVSwitch
@@ -333,20 +337,16 @@ def ReloadBouquets():
 
 def sanitizeFilename(filename):
 	"""Sanitize filename for safe filesystem use"""
-	# Remove unsafe characters
 	filename = sub(r'[\\/:*?"<>|\0]', '', filename)
 	filename = ''.join(c for c in filename if ord(c) > 31)
-	# Normalize and strip trailing characters
 	filename = normalize('NFKD', filename).encode('ascii', 'ignore').decode()
 	filename = filename.rstrip('. ').strip()
-	# Handle reserved names
 	reserved = ["CON", "PRN", "AUX", "NUL"] + ["COM" + str(i) for i in range(1, 10)] + ["LPT" + str(i) for i in range(1, 10)]
 	if filename.upper() in reserved or not filename:
 		if filename:
 			filename = "__" + filename
 		else:
 			filename = "__"
-	# Truncate if necessary
 	if len(filename) > 255:
 		base, ext = splitext(filename)
 		ext = ext[:254]
