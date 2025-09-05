@@ -15,21 +15,21 @@ from os.path import exists
 
 
 def reload_bouquet():
-	from enigma import eDVBDB
-	eDVBDB.getInstance().reloadServicelist()
-	eDVBDB.getInstance().reloadBouquets()
+    from enigma import eDVBDB
+    eDVBDB.getInstance().reloadServicelist()
+    eDVBDB.getInstance().reloadBouquets()
 
 
 try:
-	from urllib import unquote
+    from urllib import unquote
 except ImportError:
-	from urllib.parse import unquote
+    from urllib.parse import unquote
 
 
 try:
-	import pickle
-except:
-	from six.moves import cPickle as pickle
+    import pickle
+except BaseException:
+    from six.moves import cPickle as pickle
 
 
 PluginLanguageDomain = 'vavoo-maker'
@@ -38,46 +38,51 @@ PluginLanguagePath = 'Extensions/vavoo-maker/locale'
 
 isDreambox = False
 if exists("/usr/bin/apt-get"):
-	isDreambox = True
+    isDreambox = True
 
 
 def localeInit():
-	if isDreambox:
-		lang = language.getLanguage()[:2]
-		environ["LANGUAGE"] = lang
-	bindtextdomain(PluginLanguageDomain, resolveFilename(SCOPE_PLUGINS, PluginLanguagePath))
+    if isDreambox:
+        lang = language.getLanguage()[:2]
+        environ["LANGUAGE"] = lang
+    bindtextdomain(
+        PluginLanguageDomain,
+        resolveFilename(
+            SCOPE_PLUGINS,
+            PluginLanguagePath))
 
 
 if isDreambox:
-	def _(txt):
-		return dgettext(PluginLanguageDomain, txt) if txt else ""
+    def _(txt):
+        return dgettext(PluginLanguageDomain, txt) if txt else ""
 else:
-	def _(txt):
-		translated = dgettext(PluginLanguageDomain, txt)
-		if translated:
-			return translated
-		else:
-			print(("[%s] fallback to default translation for %s" % (PluginLanguageDomain, txt)))
-			return gettext(txt)
+    def _(txt):
+        translated = dgettext(PluginLanguageDomain, txt)
+        if translated:
+            return translated
+        else:
+            print(("[%s] fallback to default translation for %s" %
+                  (PluginLanguageDomain, txt)))
+            return gettext(txt)
 
 localeInit()
 language.addCallback(localeInit)
 
 
 group_titles = {
-	"Albania": "Albania",
-	"Arabia": "Arabia",
-	"Balkans": "Balkans",
-	"Bulgaria": "Bulgaria",
-	"France": "France",
-	"Germany": "Germany",
-	"Italy": "Italy",
-	"Netherlands": "Netherlands",
-	"Poland": "Poland",
-	"Portugal": "Portugal",
-	"Romania": "Romania",
-	"Russia": "Russia",
-	"Spain": "Spain",
-	"Turkey": "Turkey",
-	"United Kingdom": "United Kingdom"
+    "Albania": "Albania",
+    "Arabia": "Arabia",
+    "Balkans": "Balkans",
+    "Bulgaria": "Bulgaria",
+    "France": "France",
+    "Germany": "Germany",
+    "Italy": "Italy",
+    "Netherlands": "Netherlands",
+    "Poland": "Poland",
+    "Portugal": "Portugal",
+    "Romania": "Romania",
+    "Russia": "Russia",
+    "Spain": "Spain",
+    "Turkey": "Turkey",
+    "United Kingdom": "United Kingdom"
 }
